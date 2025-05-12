@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Two Player Game</title>
+  <style>
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      gap: 5px;
+      margin-top: 20px;
+    }
+    .cell {
+      width: 100px;
+      height: 100px;
+      font-size: 32px;
+      text-align: center;
+      line-height: 100px;
+      border: 1px solid black;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h2>Join Game</h2>
+  <input id="gameIdInput" placeholder="Enter Game ID" />
+  <button onclick="joinGame()">Join Game</button>
+  <div id="status"></div>
+  <div id="board"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let symbol = '';
+    let currentTurn = '';
+    const board = Array(9).fill('');
+
+    function joinGame() {
+      const gameId = document.getElementById('gameIdInput').value;
+      socket.emit('joinGame', { gameId });
+    }
+
+    socket.on('startGame', ({ gameId, symbol: s }) => {
+      symbol = s;
+      document.getElementById('status').textContent = `You are '${symbol}'`;
+
+      // Set currentTurn for the first player (O starts the game)
+      if (symbol === 'O') currentTurn = 'O';
+
+      renderBoard();
+    });
+
+    socket.on('updateBoard', ({ board: newBoard, currentTurn: turn }) => {
+      currentTurn = turn;
+      board.splice(0, 9, ...newBoard);  // update local board efficiently
+      renderBoard();
+    });
+
+    socket.on('errorMessage', (msg) => {
+      alert(msg);
+    });
+
+    function renderBoard() {
+      const boardDiv = document.getElementById('board');
+      boardDiv.innerHTML = '';
+      board.forEach((cell, idx) => {
+        const div = document.createElement('div');
+        div.className = 'cell';
+        div.textContent = cell;
+        div.onclick = () => {
+          console.log(`Clicked cell ${idx}, symbol: ${symbol}, currentTurn: ${currentTurn}`);
+          if (cell === '' && currentTurn === symbol) {
+            socket.emit('makeMove', {
+              gameId: document.getElementById('gameIdInput').value,
+              index: idx,
+            });
+          }
+        };
+        boardDiv.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>
